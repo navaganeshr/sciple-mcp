@@ -1,0 +1,50 @@
+name: Publish to PyPI
+
+# Tag-driven release: bump `version` in pyproject.toml, commit, then
+#   git tag v0.1.0 && git push origin v0.1.0
+# Publishing pauses for manual approval (the `pypi` environment) before
+# the upload step runs.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Upload built distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI via OIDC
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/sciple-mcp/
+    permissions:
+      # Required for PyPI Trusted Publishing (OIDC). No PyPI API token needed.
+      id-token: write
+    steps:
+      - name: Download built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
