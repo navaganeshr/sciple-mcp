@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 from sciple_mcp.client import ScipleClient
-from sciple_mcp.tools import environments, observability, services
+from sciple_mcp.tools import environments, observability, runbooks, services
 
 load_dotenv()
 
@@ -31,6 +31,7 @@ def _get_client() -> ScipleClient:
 
 environments.register(mcp, _get_client)
 observability.register(mcp, _get_client)
+runbooks.register(mcp, _get_client)
 services.register(mcp, _get_client)
 
 
