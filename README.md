@@ -92,7 +92,7 @@ Then restart Claude. You should see **26 platform tools** available.
 | `create_dashboard` | Create a new dashboard with optional description |
 | `update_dashboard` | Replace a dashboard's name and description (full PUT; name required) |
 | `delete_dashboard` | Delete a dashboard and all its panels (irreversible) |
-| `add_panel` | Add a panel to a dashboard with an optional **PromQL** or **CloudWatch Metrics** query (mutually exclusive). Bind the panel to a specific data source with `datasource_id` (recommended for CloudWatch — without it the panel may render empty). Log panels (`logs`/`log_table`) are accepted and can be bound to a data source, but log-query content (index, query, group-by) still has to be set in the UI. |
+| `add_panel` | Add a panel to a dashboard. Supports **5 shapes** end-to-end (pick one): **PromQL** (`promql`), **CloudWatch Metrics** (`cw_namespace`+`cw_metric_name`+`cw_stat` + optional `cw_dimensions`/`cw_period`), **ElasticSearch/OpenSearch logs** (`es_index` + optional `kql_filter`), **CloudWatch Logs** (`cw_log_group` + optional `cw_filter_pattern`), or **Text** (`text_content` + optional `text_background`). Log panels also accept display options (`log_columns`, `log_limit`, `log_wrap_message`, `log_expandable_rows`, `log_highlight_by_severity`, `log_live_tail`). Always pass `datasource_id` for metric + log panels. |
 | `delete_panel` | Delete a panel from a dashboard (irreversible) |
 
 ### Runbooks
