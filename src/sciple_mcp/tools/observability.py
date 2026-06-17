@@ -118,6 +118,7 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
         cw_stat: str | None = None,
         cw_dimensions: str | None = None,
         cw_period: int | None = None,
+        datasource_id: str | None = None,
     ) -> str:
         """Add a panel to a dashboard.
 
@@ -131,11 +132,15 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
 
         For panels with no query (e.g. `text` panels) omit all query parameters.
 
-        Note on log panels: `panel_type="logs"` and `"log_table"` are accepted by
-        the panel-type enum, but the API's PanelQueryWrite schema does not yet
-        carry log-query fields (no log expression, no log group / index, no data
-        source reference). Log panels created via this tool will not have a
-        query — author them in the UI for now.
+        Note on log panels: `panel_type="logs"` and `"log_table"` are accepted,
+        and you can bind them to an ElasticSearch / CloudWatch Logs data source
+        via `datasource_id`. However the log-query content (index, query
+        string, group-by fields) lives in the panel's free-form `options: dict`
+        which this tool does not yet write — so log panels created here will
+        render empty until the log query is configured in the UI. Full log
+        support is planned for a future release; see
+        `docs/superpowers/specs/2026-06-17-observability-logs-panels-via-mcp-design.md`
+        in the platform repo.
 
         Args:
             dashboard_id: The dashboard id to add the panel to.
@@ -159,6 +164,16 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
                            '[{"Name": "InstanceId", "Value": "i-0abc..."}]'.
             cw_period: Optional CloudWatch period in seconds (integer >= 1,
                        e.g. 60 for 1-minute granularity).
+            datasource_id: Optional id of the observability data source the
+                           panel should query (a Prometheus, CloudWatch,
+                           ElasticSearch, etc. data source previously
+                           configured under Observability → Data sources).
+                           When omitted the panel's `datasource_id` stays
+                           null and the renderer falls back to the
+                           dashboard's default data source — for
+                           CloudWatch-shaped queries this means the panel
+                           may render empty until a data source is set.
+                           ALWAYS pass this for CloudWatch panels.
         """
         is_promql = promql is not None and promql.strip() != ""
         is_cloudwatch = any(
@@ -192,6 +207,8 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
         }
         if legend_label is not None:
             body["legend_label"] = legend_label
+        if datasource_id is not None:
+            body["datasource_id"] = datasource_id
 
         if is_promql:
             body["queries"] = [
