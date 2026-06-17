@@ -16,6 +16,7 @@ Verified shapes:
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 
 from sciple_mcp.client import ScipleClient
@@ -112,25 +113,78 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
         unit: str = "none",
         promql: str | None = None,
         legend_label: str | None = None,
+        cw_namespace: str | None = None,
+        cw_metric_name: str | None = None,
+        cw_stat: str | None = None,
+        cw_dimensions: str | None = None,
+        cw_period: int | None = None,
     ) -> str:
         """Add a panel to a dashboard.
 
         Valid panel_type values: line, bar, stat, gauge, logs, log_table, text.
 
-        When promql is provided the panel is created with a single PromQL query.
-        For panels with no query (e.g. text panels) omit promql.
+        A panel may carry a single query in one of two shapes, never both:
+
+          PromQL          set `promql`
+          CloudWatch      set `cw_namespace` + `cw_metric_name` + `cw_stat`
+                          (and optionally `cw_dimensions`, `cw_period`)
+
+        For panels with no query (e.g. `text` panels) omit all query parameters.
+
+        Note on log panels: `panel_type="logs"` and `"log_table"` are accepted by
+        the panel-type enum, but the API's PanelQueryWrite schema does not yet
+        carry log-query fields (no log expression, no log group / index, no data
+        source reference). Log panels created via this tool will not have a
+        query — author them in the UI for now.
 
         Args:
             dashboard_id: The dashboard id to add the panel to.
             title: Panel title (1-200 characters).
             panel_type: One of: line, bar, stat, gauge, logs, log_table, text.
                         Defaults to "line".
-            unit: Display unit string (e.g. "none", "bytes", "percent"). Defaults to "none".
-            promql: Optional PromQL expression string. When provided, creates a single
-                    query row for this panel.
-            legend_label: Optional legend label for the query. Falls back to title when
-                          promql is provided and legend_label is omitted.
+            unit: Display unit string (e.g. "none", "bytes", "percent").
+                  Defaults to "none".
+            promql: PromQL expression string. Mutually exclusive with the
+                    cw_* parameters.
+            legend_label: Legend label for the query. Falls back to `title` when
+                          a query is provided and legend_label is omitted.
+            cw_namespace: CloudWatch namespace (e.g. "AWS/EC2", "AWS/RDS").
+                          Required when adding a CloudWatch query.
+            cw_metric_name: CloudWatch metric name (e.g. "CPUUtilization").
+                            Required when adding a CloudWatch query.
+            cw_stat: CloudWatch statistic (e.g. "Average", "Sum", "Maximum",
+                     "p99"). Required when adding a CloudWatch query.
+            cw_dimensions: Optional CloudWatch dimensions as a JSON string of a
+                           list of {"Name": ..., "Value": ...} dicts, e.g.
+                           '[{"Name": "InstanceId", "Value": "i-0abc..."}]'.
+            cw_period: Optional CloudWatch period in seconds (integer >= 1,
+                       e.g. 60 for 1-minute granularity).
         """
+        is_promql = promql is not None and promql.strip() != ""
+        is_cloudwatch = any(
+            v is not None for v in (cw_namespace, cw_metric_name, cw_stat)
+        )
+
+        # Friendly tool-level validation; the API also enforces these but the
+        # error message there is less specific.
+        if is_promql and is_cloudwatch:
+            return (
+                "Error: a panel query is either PromQL OR CloudWatch, not both. "
+                "Got both `promql` and one of `cw_namespace`/`cw_metric_name`/`cw_stat`."
+            )
+        if is_cloudwatch and not (cw_namespace and cw_metric_name and cw_stat):
+            missing = [
+                name for name, val in
+                (("cw_namespace", cw_namespace),
+                 ("cw_metric_name", cw_metric_name),
+                 ("cw_stat", cw_stat))
+                if not val
+            ]
+            return (
+                f"Error: CloudWatch queries require cw_namespace + cw_metric_name + "
+                f"cw_stat. Missing: {', '.join(missing)}."
+            )
+
         body: dict = {
             "title": title,
             "type": panel_type,
@@ -138,7 +192,8 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
         }
         if legend_label is not None:
             body["legend_label"] = legend_label
-        if promql is not None:
+
+        if is_promql:
             body["queries"] = [
                 {
                     "label": legend_label if legend_label is not None else title,
@@ -146,8 +201,33 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
                     "order": 0,
                 }
             ]
-        # When promql is None, omit "queries" entirely — server defaults to [].
-        p = await get_client().post(f"/observability/dashboards/{dashboard_id}/panels", body)
+        elif is_cloudwatch:
+            query: dict = {
+                "label": legend_label if legend_label is not None else title,
+                "namespace": cw_namespace,
+                "metric_name": cw_metric_name,
+                "stat": cw_stat,
+                "order": 0,
+            }
+            if cw_dimensions is not None:
+                try:
+                    parsed = json.loads(cw_dimensions)
+                except json.JSONDecodeError as exc:
+                    return f"Error: cw_dimensions is not valid JSON — {exc}"
+                if not isinstance(parsed, list):
+                    return (
+                        "Error: cw_dimensions must be a JSON list of "
+                        "{Name, Value} objects."
+                    )
+                query["dimensions"] = parsed
+            if cw_period is not None:
+                query["period"] = cw_period
+            body["queries"] = [query]
+        # When neither shape is provided, omit "queries" — server defaults to [].
+
+        p = await get_client().post(
+            f"/observability/dashboards/{dashboard_id}/panels", body
+        )
         return f"Added panel '{p['title']}' (id={p['id']}) to dashboard {dashboard_id}."
 
     @mcp.tool()
