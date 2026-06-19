@@ -87,13 +87,32 @@ tickets.register(mcp, _get_client)
 
 
 def main() -> None:
-    # Subcommand dispatch: `sciple-mcp serve …` → HTTP, anything else → stdio.
-    # Keeps the existing `uvx sciple-mcp` invocation backward-compatible.
-    if len(sys.argv) >= 2 and sys.argv[1] == "serve":
-        sys.argv.pop(1)  # let serve.main()'s argparse own the remaining argv
-        from sciple_mcp import serve
-        serve.main()
-        return
+    # Subcommand dispatch — first positional arg picks the mode:
+    #   sciple-mcp                stdio MCP server (backward-compat default)
+    #   sciple-mcp serve [...]    long-running Streamable HTTP MCP server
+    #   sciple-mcp login [...]    OAuth browser dance, cache tokens
+    #   sciple-mcp logout [...]   clear cached tokens (optionally revoke AS-side)
+    #   sciple-mcp print-token    print the current valid access token
+    if len(sys.argv) >= 2:
+        cmd = sys.argv[1]
+        if cmd in ("serve", "login", "logout", "print-token", "install", "uninstall"):
+            sys.argv.pop(1)
+            if cmd == "serve":
+                from sciple_mcp import serve
+                serve.main()
+                return
+            if cmd == "login":
+                from sciple_mcp.login import main_login
+                sys.exit(main_login())
+            if cmd == "logout":
+                from sciple_mcp.login import main_logout
+                sys.exit(main_logout())
+            if cmd == "print-token":
+                from sciple_mcp.login import main_print_token
+                sys.exit(main_print_token())
+            if cmd in ("install", "uninstall"):
+                from sciple_mcp.daemon import main_install, main_uninstall
+                sys.exit((main_install if cmd == "install" else main_uninstall)())
     mcp.run(transport="stdio")
 
 

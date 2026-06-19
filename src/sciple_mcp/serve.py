@@ -26,6 +26,7 @@ import uvicorn
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
 from sciple_mcp.auth import BearerContext, InvalidToken, JwksCache, validate_jwt
 
@@ -64,6 +65,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # introspect "is sciple-mcp running here?" without auth.
         if request.url.path == "/healthz":
             return JSONResponse({"status": "ok"})
+
+        # RFC 9728 Protected Resource Metadata — public, MCP clients fetch
+        # this to discover which AS to drive the OAuth dance against.
+        if request.url.path == "/.well-known/oauth-protected-resource":
+            return JSONResponse(
+                {
+                    "resource": f"{request.base_url}".rstrip("/"),
+                    "authorization_servers": [self._issuer],
+                    "bearer_methods_supported": ["header"],
+                    "resource_documentation": "https://github.com/navaganeshr/sciple-mcp",
+                }
+            )
 
         auth = request.headers.get("authorization", "")
         if not auth.startswith("Bearer "):

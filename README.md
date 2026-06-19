@@ -7,18 +7,27 @@ Source: <https://github.com/navaganeshr/sciple-mcp>
 
 ## Install
 
-The recommended install is via [`uv`](https://docs.astral.sh/uv/) — it's a one-time setup that gives you `uvx`, which fetches and caches `sciple-mcp` on demand. No clone required.
-
 ```bash
 # Install uv (one-time, only if you don't have it)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-`uvx sciple-mcp` will resolve the latest version from PyPI on first run and cache it locally.
+`uvx sciple-mcp` resolves the latest version from PyPI and caches it.
 
-## Configuration
+## Two ways to authenticate
 
-The server reads three environment variables:
+`sciple-mcp` accepts two credential styles against the same Bearer machinery. Pick by transport:
+
+| Transport | Auth | When to use |
+|---|---|---|
+| **stdio** — `uvx sciple-mcp` spawned per session | Personal Access Token (`sciple_pat_…`) in env | Simplest. Claude Desktop's default MCP model. |
+| **HTTP** — long-running `sciple-mcp serve` | OAuth-issued JWT (browser dance) | Multi-client. Claude Code + any other HTTP-aware MCP client share the same server. Refresh tokens, revocation, Connected apps. |
+
+---
+
+## Stdio + PAT (default)
+
+The server reads three env vars; the PAT is minted under **Profile → Access tokens**:
 
 ```
 SCIPLE_API_URL=http://localhost:8000/api/v1
@@ -26,20 +35,7 @@ SCIPLE_API_TOKEN=sciple_pat_...
 SCIPLE_TENANT_ID=<your tenant id>
 ```
 
-`SCIPLE_API_TOKEN` is a **personal access token** minted under **Profile → Access tokens** in the Sciple dashboard, scoped to the permissions the server should have:
-
-| Domain | Permissions |
-|---|---|
-| Environments | `environments.view`, `environments.manage` |
-| Services | `services.view`, `services.manage` |
-| Observability | `observability.view`, `observability.manage` |
-| Runbooks | `observability.view`, `observability.manage` (runbooks live under the observability permission family) |
-
-The PAT is **single-tenant** — its bound tenant must equal `SCIPLE_TENANT_ID`. Calls against a different tenant return 403.
-
-## Wire into Claude Desktop / Claude Code
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude Desktop) or your Claude Code MCP config:
+Wire into `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -57,9 +53,47 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude
 }
 ```
 
-Then restart Claude. You should see **26 platform tools** available.
+The PAT is **single-tenant** — its bound tenant must equal `SCIPLE_TENANT_ID`. The Sciple dashboard renders this exact JSON block (with `SCIPLE_API_URL` and `SCIPLE_TENANT_ID` pre-filled) on Profile → Access tokens.
 
-> The Sciple dashboard also renders this exact JSON block — with `SCIPLE_API_URL` and `SCIPLE_TENANT_ID` pre-filled from the running environment — inside the **"How to use this token with Claude"** panel on Profile → Access tokens. Generate a token there and copy the snippet directly.
+---
+
+## HTTP + OAuth (v0.6.0)
+
+Five CLI subcommands ship the full lifecycle:
+
+```bash
+# 1. Authenticate via browser. DCR-registers a client on first run, drives
+#    the PKCE dance, caches the tokens to ~/.sciple/credentials.json (0600).
+sciple-mcp login --tenant-id <your tenant id> \
+                 --scope environments.view --scope services.view
+
+# 2. Start the HTTP MCP server. Accepts OAuth JWTs as Bearer on /mcp.
+sciple-mcp serve --port 8765
+
+# 3. (macOS) make `serve` start at user login via launchd.
+sciple-mcp install
+
+# 4. One-shot token retrieval — refreshes if within 120s of expiry.
+sciple-mcp print-token
+
+# 5. Forget cached credentials. --revoke also kills the refresh server-side.
+sciple-mcp logout --revoke
+```
+
+Wire Claude Code / any HTTP-aware MCP client at the server:
+
+```json
+{
+  "mcpServers": {
+    "sciple-platform": {
+      "url": "http://localhost:8765/mcp",
+      "auth": "oauth"
+    }
+  }
+}
+```
+
+The MCP client discovers the AS via `/.well-known/oauth-protected-resource` on the running `sciple-mcp serve` and drives its own browser dance. The user can also revoke access at any time from **Profile → Connected apps** on the dashboard.
 
 ## Tools
 
