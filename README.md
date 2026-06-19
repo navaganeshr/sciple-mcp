@@ -1,3 +1,11 @@
+<!--
+mcp-name: io.github.navaganeshr/sciple-mcp
+
+This line is required by the MCP Registry to prove that the PyPI
+package `sciple-mcp` belongs to the GitHub repo `navaganeshr/sciple-mcp`
+(see https://registry.modelcontextprotocol.io). Do not remove.
+-->
+
 # Sciple Platform MCP Server
 
 MCP server that lets a local Claude populate and manage Sciple platform content — environments, services, observability dashboards, runbooks, projects, and tickets — via the Sciple REST API. Engineers use it to bootstrap tenant structure, maintain the service catalog, build dashboards, author runbooks, and triage tickets without leaving their AI coding session.

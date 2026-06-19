@@ -3,7 +3,7 @@
   "name": "io.github.navaganeshr/sciple-mcp",
   "title": "Sciple Platform",
   "description": "MCP server for the Sciple platform — environments, services, dashboards, runbooks, tickets.",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "repository": {
     "url": "https://github.com/navaganeshr/sciple-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "sciple-mcp",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
