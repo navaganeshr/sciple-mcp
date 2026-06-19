@@ -25,6 +25,10 @@ dependencies = [
     "mcp[cli]>=1.0.0",
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",
+    # HTTP transport (Phase 3): `sciple-mcp serve` runs an ASGI app with auth middleware.
+    "uvicorn>=0.30",
+    "starlette>=0.36",
+    "pyjwt[crypto]>=2.8",
 ]
 
 [project.urls]
