@@ -111,6 +111,32 @@ Then restart Claude. You should see **26 platform tools** available.
 
 Runbook lifecycle: `draft → reviewed → standard`. Deprecation is one-way from any state.
 
+### Projects
+
+| Tool | Description |
+|---|---|
+| `list_projects` | List all projects in the tenant (id, key, name, classification) |
+| `get_project` | Get a single project's details (owner, description, classification) |
+| `create_project` | Create a new project (name + uppercase key like "PLAT", optional classification + owner) |
+| `list_project_members` | List the user_ids and roles of a project's members (use to find an assignee) |
+| `list_project_issue_types` | List a project's issue types (required before `create_project_ticket`) |
+
+### Tickets
+
+| Tool | Description |
+|---|---|
+| `list_tickets` | List tickets across the tenant with optional filters (service, assignee, status, priority, type, tag, full-text `q`) |
+| `get_ticket` | Get a single ticket's full details + activity counts (by internal id) |
+| `create_ticket` | Create a **service-level** ticket (not bound to a project) — `tickets.manage` |
+| `update_ticket` | PATCH a ticket — change status, priority, assignee, dates, tags, parent |
+| `comment_on_ticket` | Add a comment to a ticket — `tickets.comment` |
+| `link_tickets` | Relate two tickets (`blocks` / `relates_to` / `duplicates`) |
+| `list_project_tickets` | List tickets in a project |
+| `get_project_ticket` | Get a project ticket by sequence number (the NNN in KEY-NNN) |
+| `create_project_ticket` | **Create a ticket inside a project** — returns a "KEY-NNN" display id. Recommended for most ticket creation. Supports `custom_fields` (JSON string of `{field_id: value}`). Requires `tickets.create`. |
+
+Ticket statuses: `open → in_progress → done` (or `cancelled` from any state). Priorities: `low / medium / high / urgent`. Severities (optional): `minor / major / critical`. Types: `epic / story / task / subtask / bug`.
+
 ## Security
 
 The server can only do what the PAT's scope allows. Attempts to write without the relevant `manage` permission return a 403 from the API and are surfaced as an error in Claude's response. The PAT is revocable at any time from **Profile → Access tokens** in the Sciple dashboard — revoking it immediately cuts off the server's access without any config change.
