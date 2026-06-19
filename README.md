@@ -1,9 +1,18 @@
 # Sciple Platform MCP Server
 
-MCP server that lets a local Claude populate and manage Sciple platform content — environments, services, observability dashboards, and runbooks — via the Sciple REST API. Engineers use it to bootstrap tenant structure, maintain the service catalog, build dashboards, and author runbooks without leaving their AI coding session.
+MCP server that lets a local Claude populate and manage Sciple platform content — environments, services, observability dashboards, runbooks, projects, and tickets — via the Sciple REST API. Engineers use it to bootstrap tenant structure, maintain the service catalog, build dashboards, author runbooks, and triage tickets without leaving their AI coding session.
 
-Published on PyPI: <https://pypi.org/project/sciple-mcp/>
-Source: <https://github.com/navaganeshr/sciple-mcp>
+**Distribution channels:**
+
+| Channel | Use it from | How to install |
+|---|---|---|
+| **PyPI** | Claude Code, custom scripts, CI | `uvx sciple-mcp` |
+| **MCP Registry** | Anywhere an MCP client speaks the registry protocol | Resolves automatically by `io.github.navaganeshr/sciple-mcp` |
+| **Desktop Extension** (`.dxt`) | Claude Desktop | Double-click `sciple-mcp-<version>.dxt` from the [GitHub release](https://github.com/navaganeshr/sciple-mcp/releases/latest) |
+
+- PyPI: <https://pypi.org/project/sciple-mcp/>
+- MCP Registry: <https://registry.modelcontextprotocol.io/v0/servers/io.github.navaganeshr%2Fsciple-mcp>
+- Source: <https://github.com/navaganeshr/sciple-mcp>
 
 ## Install
 

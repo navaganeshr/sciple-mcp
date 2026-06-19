@@ -1,0 +1,53 @@
+{
+  "manifest_version": "0.3",
+  "name": "sciple-mcp",
+  "display_name": "Sciple Platform",
+  "version": "0.6.1",
+  "description": "Populate and manage Sciple platform content from Claude — environments, services, dashboards, runbooks, projects, tickets.",
+  "long_description": "MCP server for the Sciple Internal Developer Platform. Lets Claude bootstrap tenant structure, maintain the service catalogue, build observability dashboards, author runbooks, and manage projects + tickets without leaving the chat. Stdio mode — what this Desktop Extension runs — authenticates with a Sciple personal access token (PAT) minted from Profile → Access tokens in your Sciple dashboard.",
+  "author": {
+    "name": "Navaganesh Raju",
+    "email": "navaganesh.raju@gmail.com",
+    "url": "https://github.com/navaganeshr"
+  },
+  "homepage": "https://github.com/navaganeshr/sciple-mcp",
+  "documentation": "https://github.com/navaganeshr/sciple-mcp#readme",
+  "support": "https://github.com/navaganeshr/sciple-mcp/issues",
+  "license": "MIT",
+  "keywords": ["mcp", "sciple", "platform", "idp", "devtools"],
+  "server": {
+    "type": "python",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "uvx",
+      "args": ["sciple-mcp"],
+      "env": {
+        "SCIPLE_API_URL": "${user_config.api_url}",
+        "SCIPLE_API_TOKEN": "${user_config.api_token}",
+        "SCIPLE_TENANT_ID": "${user_config.tenant_id}"
+      }
+    }
+  },
+  "user_config": {
+    "api_url": {
+      "type": "string",
+      "title": "Sciple API URL",
+      "description": "Base URL of your Sciple platform REST API, including the /api/v1 prefix. Example: http://localhost:8000/api/v1",
+      "required": true,
+      "default": "http://localhost:8000/api/v1"
+    },
+    "api_token": {
+      "type": "string",
+      "title": "Sciple Personal Access Token",
+      "description": "Mint a token under Profile → Access tokens in your Sciple dashboard. Scopes govern which tools succeed; out-of-scope calls return 403.",
+      "required": true,
+      "sensitive": true
+    },
+    "tenant_id": {
+      "type": "string",
+      "title": "Sciple Tenant ID",
+      "description": "Short id of your Sciple tenant (e.g. Oejcdo). Must equal the token's bound tenant.",
+      "required": true
+    }
+  }
+}

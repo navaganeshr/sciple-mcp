@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.navaganeshr/sciple-mcp",
+  "title": "Sciple Platform",
+  "description": "MCP server for populating and managing Sciple platform content — environments, services, observability dashboards, runbooks, projects, and tickets — via the Sciple REST API. Stdio mode uses a personal access token; HTTP mode (sciple-mcp serve) uses OAuth 2.0 with PKCE.",
+  "version": "0.6.1",
+  "repository": {
+    "url": "https://github.com/navaganeshr/sciple-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "sciple-mcp",
+      "version": "0.6.1",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SCIPLE_API_URL",
+          "description": "Base URL of the Sciple platform REST API, including the /api/v1 prefix. Example: http://localhost:8000/api/v1.",
+          "isRequired": true
+        },
+        {
+          "name": "SCIPLE_API_TOKEN",
+          "description": "Sciple personal access token (sciple_pat_...). Mint one under Profile → Access tokens in the Sciple dashboard. The token's scopes govern which tools succeed; out-of-scope calls return 403.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "SCIPLE_TENANT_ID",
+          "description": "Short id of the Sciple tenant the server will act against. Must equal the token's bound tenant; calls against a different tenant return 403.",
+          "isRequired": true
+        }
+      ]
+    }
+  ]
+}

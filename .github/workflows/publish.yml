@@ -1,9 +1,16 @@
-name: Publish to PyPI
+name: Publish
 
 # Tag-driven release: bump `version` in pyproject.toml, commit, then
-#   git tag v0.1.0 && git push origin v0.1.0
-# Publishing pauses for manual approval (the `pypi` environment) before
-# the upload step runs.
+#   git tag v0.6.0 && git push origin v0.6.0
+#
+# What this runs in order on a `v*` tag:
+#   1. build         — sdist + wheel into dist/ and a .dxt into bundle/
+#   2. publish-pypi  — Trusted-Publish to PyPI (OIDC, no token)
+#   3. publish-registry  — register/update the entry on
+#                          registry.modelcontextprotocol.io via GitHub OIDC
+#                          (proves ownership of io.github.navaganeshr/*)
+#   4. github-release — attach the .dxt bundle so users can one-click
+#                       install in Claude Desktop
 
 on:
   push:
@@ -12,7 +19,7 @@ on:
 
 jobs:
   build:
-    name: Build sdist + wheel
+    name: Build sdist + wheel + .dxt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,16 +27,33 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Build distributions
+      - name: Build Python distributions
         run: uv build
 
-      - name: Upload built distributions
+      - name: Build Desktop Extension bundle (.dxt)
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          # .dxt is a zip with manifest.json at the root and the entry_point
+          # path resolvable from the bundle root. We only ship the manifest
+          # + shim; the actual MCP runs via `uvx sciple-mcp` at the user's
+          # machine, fetched on demand from PyPI.
+          ( cd dxt && zip -r "../bundle/sciple-mcp-${GITHUB_REF_NAME#v}.dxt" . )
+          ls -lh bundle/
+
+      - name: Upload Python dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-  publish:
+      - name: Upload .dxt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dxt
+          path: bundle/
+
+  publish-pypi:
     name: Publish to PyPI via OIDC
     needs: build
     runs-on: ubuntu-latest
@@ -48,3 +72,54 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-registry:
+    name: Publish to MCP Registry via GitHub OIDC
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      # GitHub OIDC token is what proves ownership of the
+      # io.github.navaganeshr/* namespace to the registry — no
+      # registry-side secret required.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher CLI
+        run: |
+          set -euo pipefail
+          # Pin the binary version explicitly when a release tag exists;
+          # falling back to `latest` keeps the workflow current until then.
+          curl -sSfL \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin mcp-publisher
+          mcp-publisher --version
+
+      - name: Authenticate with GitHub OIDC
+        run: mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        run: mcp-publisher publish
+
+  github-release:
+    name: Attach .dxt to the GitHub release
+    needs: [publish-pypi, publish-registry]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download .dxt artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dxt
+          path: bundle/
+
+      - name: Create / update GitHub release with .dxt
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bundle/*.dxt
+          generate_release_notes: true
+          fail_on_unmatched_files: true

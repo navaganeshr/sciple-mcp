@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sciple-mcp"
-version = "0.6.0"
+version = "0.6.1"
 description = "MCP server for populating and managing Sciple platform content"
 readme = "README.md"
 requires-python = ">=3.12"
