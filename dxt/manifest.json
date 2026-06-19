@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "sciple-mcp",
   "display_name": "Sciple Platform",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Populate and manage Sciple platform content from Claude — environments, services, dashboards, runbooks, projects, tickets.",
   "long_description": "MCP server for the Sciple Internal Developer Platform. Lets Claude bootstrap tenant structure, maintain the service catalogue, build observability dashboards, author runbooks, and manage projects + tickets without leaving the chat. Stdio mode — what this Desktop Extension runs — authenticates with a Sciple personal access token (PAT) minted from Profile → Access tokens in your Sciple dashboard.",
   "author": {

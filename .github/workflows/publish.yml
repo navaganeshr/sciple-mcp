@@ -89,12 +89,15 @@ jobs:
       - name: Install mcp-publisher CLI
         run: |
           set -euo pipefail
-          # Pin the binary version explicitly when a release tag exists;
-          # falling back to `latest` keeps the workflow current until then.
+          # Asset naming is `mcp-publisher_<os>_<arch>.tar.gz` — the runner
+          # is ubuntu-latest (linux/amd64). Tarball contents are flat:
+          # LICENSE, README.md, mcp-publisher.
+          tmp=$(mktemp -d)
           curl -sSfL \
-            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_x86_64.tar.gz" \
-            | tar -xz -C /usr/local/bin mcp-publisher
-          mcp-publisher --version
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar -xz -C "$tmp"
+          sudo install -m 0755 "$tmp/mcp-publisher" /usr/local/bin/mcp-publisher
+          mcp-publisher --help | head -3
 
       - name: Authenticate with GitHub OIDC
         run: mcp-publisher login github-oidc
