@@ -182,13 +182,11 @@ def _exchange_code(
 # ── login() ────────────────────────────────────────────────────────────
 
 
-DEFAULT_SCOPES = (
-    "environments.view",
-    "services.view",
-    "observability.view",
-    "projects.view",
-    "tickets.view",
-)
+# Sentinel passed when --scope is omitted. The AS interprets an empty scope
+# list as "grant me everything I hold on the tenant" — so the local agent
+# inherits the user's role verbatim instead of forcing the user to enumerate
+# permissions upfront.
+INHERIT_ALL: tuple[str, ...] = ()
 
 
 def login(
@@ -302,7 +300,12 @@ def main_login(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--scope", action="append", default=None,
-        help="Permission to request. Repeat for multiple. Defaults to read-only across all domains.",
+        help=(
+            "Permission to request. Repeat for multiple. "
+            "Default: omit to inherit ALL permissions the user holds on the tenant "
+            "(recommended for personal local agents). Pass explicit --scope flags "
+            "only when down-scoping (CI bots, shared tooling)."
+        ),
     )
     parser.add_argument(
         "--client-name", default="sciple-mcp-cli",
@@ -314,7 +317,7 @@ def main_login(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    scope = args.scope if args.scope else list(DEFAULT_SCOPES)
+    scope = args.scope if args.scope else list(INHERIT_ALL)
     try:
         login(
             platform_url=args.platform_url,

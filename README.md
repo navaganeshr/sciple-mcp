@@ -64,8 +64,11 @@ Five CLI subcommands ship the full lifecycle:
 ```bash
 # 1. Authenticate via browser. DCR-registers a client on first run, drives
 #    the PKCE dance, caches the tokens to ~/.sciple/credentials.json (0600).
-sciple-mcp login --tenant-id <your tenant id> \
-                 --scope environments.view --scope services.view
+#
+# By default, the resulting JWT inherits ALL permissions you hold on the
+# tenant — same role as you. Pass --scope only if you want to down-scope
+# (CI bots, shared tooling).
+sciple-mcp login --tenant-id <your tenant id>
 
 # 2. Start the HTTP MCP server. Accepts OAuth JWTs as Bearer on /mcp.
 sciple-mcp serve --port 8765
