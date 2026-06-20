@@ -74,9 +74,45 @@ The PAT is **single-tenant** — its bound tenant must equal `SCIPLE_TENANT_ID`.
 
 ---
 
-## HTTP + OAuth (v0.6.0)
+## HTTP + OAuth (v0.6.0+)
 
-Five CLI subcommands ship the full lifecycle:
+**Phase 5 update (v0.6.5):** the Sciple platform now hosts the MCP server
+itself at `<platform>/mcp`. You no longer need to run `sciple-mcp serve`
+on every laptop — your Claude client just points at the platform URL and
+authenticates with the OAuth JWT this CLI mints.
+
+The CLI is now a **credential helper**:
+
+```bash
+# 1. Authenticate via browser. The JWT inherits your full role on the tenant.
+sciple-mcp login --platform-url https://your.sciple.cloud --tenant-id <id>
+
+# 2. Print the current valid access token (auto-refreshes if expired).
+sciple-mcp print-token
+
+# 3. Forget cached credentials (--revoke also kills the refresh server-side).
+sciple-mcp logout --revoke
+```
+
+Wire your Claude client at the **platform's** /mcp endpoint:
+
+```bash
+# Claude Code
+claude mcp add-json sciple-platform "$(cat <<EOF
+{
+  "type": "http",
+  "url": "https://your.sciple.cloud/mcp",
+  "headers": { "Authorization": "Bearer $(sciple-mcp print-token)" }
+}
+EOF
+)"
+```
+
+### Legacy: local `sciple-mcp serve` (still supported)
+
+For air-gapped deployments, custom transports, or offline development, the
+local HTTP server still works. Use this only if you can't reach the
+platform's hosted `/mcp` endpoint directly:
 
 ```bash
 # 1. Authenticate via browser. DCR-registers a client on first run, drives
