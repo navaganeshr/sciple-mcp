@@ -84,8 +84,9 @@ authenticates with the OAuth JWT this CLI mints.
 The CLI is now a **credential helper**:
 
 ```bash
-# 1. Authenticate via browser. The JWT inherits your full role on the tenant.
-sciple-mcp login --platform-url https://your.sciple.cloud --tenant-id <id>
+# 1. Authenticate via browser. The JWT inherits your full role on the
+#    tenant the dashboard is currently showing — no flags required.
+sciple-mcp login --platform-url https://your.sciple.cloud
 
 # 2. Print the current valid access token (auto-refreshes if expired).
 sciple-mcp print-token

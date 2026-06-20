@@ -192,13 +192,19 @@ INHERIT_ALL: tuple[str, ...] = ()
 def login(
     *,
     platform_url: str,
-    tenant_id: str,
+    tenant_id: str | None,
     scope: list[str],
     client_name: str = "sciple-mcp-cli",
     open_browser: bool = True,
     timeout_s: float = 120.0,
 ) -> Credential:
     """Drive the full OAuth flow and persist the resulting credential.
+
+    `tenant_id` is optional. If omitted, the dashboard's consent page
+    falls back to the user's currently-active tenant — that's the
+    typical UX for a personal local agent. Pass it explicitly only when
+    the agent has to target a specific tenant the user isn't actively
+    using.
 
     Returns the saved Credential. Raises on any failure.
     """
@@ -221,21 +227,24 @@ def login(
     server = socketserver.TCPServer(("127.0.0.1", callback_port), _CallbackHandler)
     server.allow_reuse_address = True
 
+    # Build the authorize URL. Drop `tenant_id` when not specified so the
+    # consent page resolves it from the user's active dashboard tenant.
+    auth_params: dict[str, str] = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "scope": " ".join(scope),
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    }
+    if tenant_id:
+        auth_params["tenant_id"] = tenant_id
     auth_url = (
-        platform_url.rstrip("/")
-        + "/oauth/authorize?"
-        + urllib.parse.urlencode({
-            "response_type": "code",
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "state": state,
-            "scope": " ".join(scope),
-            "tenant_id": tenant_id,
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        })
+        platform_url.rstrip("/") + "/oauth/authorize?" + urllib.parse.urlencode(auth_params)
     )
-    _say(f"  opening browser to authorize as tenant={tenant_id}, scope={scope}")
+    tenant_label = tenant_id or "(active tenant from dashboard)"
+    _say(f"  opening browser to authorize as tenant={tenant_label}, scope={scope}")
     _say(f"  if it doesn't open, visit: {auth_url}")
     if open_browser:
         webbrowser.open(auth_url)
@@ -266,11 +275,15 @@ def login(
     )
 
     now = int(time.time())
+    # When the CLI didn't pass --tenant-id, the consent page picked one for
+    # us. Read the resolved tenant back out of the access token's claims so
+    # the cache reflects what the platform actually bound the token to.
+    resolved_tenant = tenant_id or _tenant_id_from_jwt(token_payload["access_token"])
     cred = Credential(
         platform_url=platform_url,
         client_id=client_id,
         client_name=client_name,
-        tenant_id=tenant_id,
+        tenant_id=resolved_tenant,
         scope=list(scope),
         access_token=token_payload["access_token"],
         refresh_token=token_payload["refresh_token"],
@@ -278,8 +291,25 @@ def login(
         obtained_at=now,
     )
     save_credential(cred, set_default=True)
-    _say(f"  ✅ saved to {credentials_path()} (mode 0600)")
+    _say(f"  ✅ saved to {credentials_path()} (mode 0600), bound to tenant={resolved_tenant}")
     return cred
+
+
+def _tenant_id_from_jwt(access_token: str) -> str:
+    """Decode the JWT payload (no signature verify — we just minted it).
+
+    Falls back to the literal string 'unknown' if the claim is missing.
+    """
+    try:
+        payload_b64 = access_token.split(".")[1]
+        # JWT base64url payload may lack padding; add it back.
+        padded = payload_b64 + "=" * (-len(payload_b64) % 4)
+        import base64
+        import json
+        claims = json.loads(base64.urlsafe_b64decode(padded))
+        return str(claims.get("tenant_id") or "unknown")
+    except Exception:
+        return "unknown"
 
 
 # ── CLI entrypoints ────────────────────────────────────────────────────
@@ -295,8 +325,14 @@ def main_login(argv: list[str] | None = None) -> int:
         help="Sciple platform base URL (default: http://localhost:5175)",
     )
     parser.add_argument(
-        "--tenant-id", required=True,
-        help="Tenant the resulting token will be bound to (e.g. Oejcdo).",
+        "--tenant-id", default=None,
+        help=(
+            "Tenant the resulting token will be bound to (e.g. Oejcdo). "
+            "If omitted, the dashboard's consent page picks your currently-"
+            "active tenant — the recommended default for personal local "
+            "agents. Pass it explicitly only when targeting a tenant you're "
+            "not actively using."
+        ),
     )
     parser.add_argument(
         "--scope", action="append", default=None,
