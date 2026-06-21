@@ -72,6 +72,11 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Make the release re-runnable: if this version is already on PyPI
+          # (e.g. a later job failed and the tag is re-pushed), skip the upload
+          # instead of failing, so publish-registry / github-release can retry.
+          skip-existing: true
 
   publish-registry:
     name: Publish to MCP Registry via GitHub OIDC
