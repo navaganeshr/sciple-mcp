@@ -31,74 +31,38 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 `uvx sciple-mcp` resolves the latest version from PyPI and caches it.
 
-## Two ways to authenticate
+## Authentication — OAuth only (v0.7.0+)
 
-`sciple-mcp` accepts two credential styles against the same Bearer machinery. Pick by transport:
+`sciple-mcp` authenticates against the Sciple platform via **OAuth 2.0
+with PKCE**. The CLI is a credential helper: log in once via the
+browser, the access + refresh tokens land in `~/.sciple/credentials.json`
+(mode 0600), and the MCP server reads + auto-refreshes from there.
 
-| Transport | Auth | When to use |
-|---|---|---|
-| **stdio** — `uvx sciple-mcp` spawned per session | Personal Access Token (`sciple_pat_…`) in env | Simplest. Claude Desktop's default MCP model. |
-| **HTTP** — long-running `sciple-mcp serve` | OAuth-issued JWT (browser dance) | Multi-client. Claude Code + any other HTTP-aware MCP client share the same server. Refresh tokens, revocation, Connected apps. |
+> **PAT support was removed in v0.7.0.** Earlier versions accepted
+> `SCIPLE_API_TOKEN=sciple_pat_…` in the env (stdio mode). That path is
+> gone — the only credential the MCP server understands is the OAuth
+> JWT minted by `sciple-mcp login`. Personal Access Tokens on the
+> platform are unchanged and still work for scripts / CI / direct REST
+> calls against `/api/v1/*`.
 
----
-
-## Stdio + PAT (default)
-
-The server reads three env vars; the PAT is minted under **Profile → Access tokens**:
-
-```
-SCIPLE_API_URL=http://localhost:8000/api/v1
-SCIPLE_API_TOKEN=sciple_pat_...
-SCIPLE_TENANT_ID=<your tenant id>
-```
-
-Wire into `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "sciple-platform": {
-      "command": "uvx",
-      "args": ["sciple-mcp"],
-      "env": {
-        "SCIPLE_API_URL": "http://localhost:8000/api/v1",
-        "SCIPLE_API_TOKEN": "sciple_pat_...",
-        "SCIPLE_TENANT_ID": "..."
-      }
-    }
-  }
-}
-```
-
-The PAT is **single-tenant** — its bound tenant must equal `SCIPLE_TENANT_ID`. The Sciple dashboard renders this exact JSON block (with `SCIPLE_API_URL` and `SCIPLE_TENANT_ID` pre-filled) on Profile → Access tokens.
-
----
-
-## HTTP + OAuth (v0.6.0+)
-
-**Phase 5 update (v0.6.5):** the Sciple platform now hosts the MCP server
-itself at `<platform>/mcp`. You no longer need to run `sciple-mcp serve`
-on every laptop — your Claude client just points at the platform URL and
-authenticates with the OAuth JWT this CLI mints.
-
-The CLI is now a **credential helper**:
+### 1. Log in (one-time per platform)
 
 ```bash
-# 1. Authenticate via browser. The JWT inherits your full role on the
-#    tenant the dashboard is currently showing — no flags required.
 sciple-mcp login --platform-url https://your.sciple.cloud
-
-# 2. Print the current valid access token (auto-refreshes if expired).
-sciple-mcp print-token
-
-# 3. Forget cached credentials (--revoke also kills the refresh server-side).
-sciple-mcp logout --revoke
 ```
 
-Wire your Claude client at the **platform's** /mcp endpoint:
+Opens your browser, you click Approve on the consent page, the CLI
+captures the callback and writes the credential. No `--tenant-id` /
+`--scope` needed — the JWT inherits your full role on whichever tenant
+the dashboard is currently showing.
+
+### 2. Wire into Claude
+
+The Sciple platform now hosts `/mcp` itself, so the preferred shape is
+Streamable HTTP straight to the platform:
 
 ```bash
-# Claude Code
+# Claude Code (HTTP transport — preferred)
 claude mcp add-json sciple-platform "$(cat <<EOF
 {
   "type": "http",
@@ -109,48 +73,44 @@ EOF
 )"
 ```
 
-### Legacy: local `sciple-mcp serve` (still supported)
-
-For air-gapped deployments, custom transports, or offline development, the
-local HTTP server still works. Use this only if you can't reach the
-platform's hosted `/mcp` endpoint directly:
-
-```bash
-# 1. Authenticate via browser. DCR-registers a client on first run, drives
-#    the PKCE dance, caches the tokens to ~/.sciple/credentials.json (0600).
-#
-# By default, the resulting JWT inherits ALL permissions you hold on the
-# tenant — same role as you. Pass --scope only if you want to down-scope
-# (CI bots, shared tooling).
-sciple-mcp login --tenant-id <your tenant id>
-
-# 2. Start the HTTP MCP server. Accepts OAuth JWTs as Bearer on /mcp.
-sciple-mcp serve --port 8765
-
-# 3. (macOS) make `serve` start at user login via launchd.
-sciple-mcp install
-
-# 4. One-shot token retrieval — refreshes if within 120s of expiry.
-sciple-mcp print-token
-
-# 5. Forget cached credentials. --revoke also kills the refresh server-side.
-sciple-mcp logout --revoke
-```
-
-Wire Claude Code / any HTTP-aware MCP client at the server:
+For Claude Desktop builds that only speak stdio MCP today, use the
+stdio mode — same credential, no PAT:
 
 ```json
 {
   "mcpServers": {
     "sciple-platform": {
-      "url": "http://localhost:8765/mcp",
-      "auth": "oauth"
+      "command": "uvx",
+      "args": ["sciple-mcp"],
+      "env": {
+        "SCIPLE_PLATFORM_URL": "https://your.sciple.cloud"
+      }
     }
   }
 }
 ```
 
-The MCP client discovers the AS via `/.well-known/oauth-protected-resource` on the running `sciple-mcp serve` and drives its own browser dance. The user can also revoke access at any time from **Profile → Connected apps** on the dashboard.
+`SCIPLE_PLATFORM_URL` is optional — only needed if you have multiple
+platforms cached. Stdio mode reads `~/.sciple/credentials.json`
+directly.
+
+### 3. Manage / rotate
+
+```bash
+sciple-mcp print-token            # current valid JWT (auto-refreshes near expiry)
+sciple-mcp logout                 # forget local cache
+sciple-mcp logout --revoke        # also revoke the refresh token server-side
+```
+
+Revoke any time from **Profile → Connected apps** on the dashboard.
+
+### Legacy: `sciple-mcp serve` (local HTTP server)
+
+For air-gapped deployments where the client can't reach the platform's
+hosted `/mcp` endpoint, `sciple-mcp serve` still ships a local
+Streamable HTTP MCP server that re-validates OAuth JWTs against the
+platform's JWKS. Same credential, same flow — only the network shape
+differs. See `--help` for `serve` / `install` / `uninstall`.
 
 ## Tools
 
