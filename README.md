@@ -114,6 +114,57 @@ differs. See `--help` for `serve` / `install` / `uninstall`.
 
 ## Tools
 
+### Cloud inventory (read-only)
+
+| Tool | Description |
+|---|---|
+| `list_aws_accounts` | List AWS accounts connected to the tenant (account_id, name, AWS number, regions, payer flag) |
+| `list_cloud_resource_types` | List synced resource types + row counts for one AWS service in an account |
+| `query_cloud_resources` | Query cached rows from any synced AWS resource table (paginated, region filter) |
+| `list_ec2_instances` | Summarize EC2 instances for one account or across all (state/type/id/name/ip) |
+
+These read the platform's **last AWS sync** — they never call AWS directly and
+never mutate anything. They require the credential to hold `cloud.view`.
+
+#### Example — explore your AWS estate
+
+Ask Claude in plain language; it chains the tools for you:
+
+> **You:** What EC2 instances are running across all our AWS accounts?
+
+Claude calls `list_ec2_instances` (no `account_id` → sweeps every connected
+account) and summarizes:
+
+```
+45 EC2 instances across 4 accounts.
+
+### Production (account_id=LlDZzq) — 13 instances (12 running, 1 shutting-down)
+  [running] m5.2xlarge i-047323d5f680e822f portal-apps-ondemand (10.40.2.11)
+  [running] t2.micro   i-00fcaed2de8131fd1 prod-nat-instance-1a (10.40.0.9)
+  ...
+```
+
+To drill into a single account, or a different resource type, Claude discovers
+what's synced first, then queries it:
+
+> **You:** Show the RDS databases in the Production account.
+
+```
+1. list_aws_accounts                  → Production has account_id "LlDZzq"
+2. list_cloud_resource_types(         → aws_rds_db_instance: 4
+     account_id="LlDZzq", service="rds")
+3. query_cloud_resources(             → 4 rows (engine, class, status, endpoint…)
+     account_id="LlDZzq", service="rds",
+     resource_type="aws_rds_db_instance")
+```
+
+`query_cloud_resources` is the generic accessor for **any** of the 19 supported
+services (`ec2`, `rds`, `s3`, `vpc`, `iam`, `lambda`, `eks`, `ecs`, `ebs`,
+`elasticache`, `route53`, `cloudfront`, `dynamodb`, `ecr`, `efs`, and the
+`code*` suite) — pass an unknown `service` and the tool returns the valid set.
+Use `region` to filter (`"global"` for S3) and `page` / `page_size` (≤500) to
+walk large tables.
+
 ### Environments
 
 | Tool | Description |

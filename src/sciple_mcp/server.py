@@ -42,6 +42,7 @@ from mcp.server.fastmcp import FastMCP
 
 from sciple_mcp.client import ScipleClient
 from sciple_mcp.tools import (
+    cloud,
     environments,
     observability,
     projects,
@@ -109,6 +110,7 @@ def _get_client() -> ScipleClient:
     )
 
 
+cloud.register(mcp, _get_client)
 environments.register(mcp, _get_client)
 observability.register(mcp, _get_client)
 projects.register(mcp, _get_client)
