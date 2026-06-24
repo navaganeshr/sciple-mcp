@@ -76,7 +76,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     "resource": f"{request.base_url}".rstrip("/"),
                     "authorization_servers": [self._issuer],
                     "bearer_methods_supported": ["header"],
-                    "resource_documentation": "https://github.com/navaganeshr/sciple-mcp",
+                    "resource_documentation": "https://github.com/sciple-idp/sciple-mcp",
                 }
             )
 

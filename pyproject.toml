@@ -32,10 +32,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage      = "https://github.com/navaganeshr/sciple-mcp"
-Source        = "https://github.com/navaganeshr/sciple-mcp"
-Issues        = "https://github.com/navaganeshr/sciple-mcp/issues"
-Documentation = "https://github.com/navaganeshr/sciple-mcp#readme"
+Homepage      = "https://github.com/sciple-idp/sciple-mcp"
+Source        = "https://github.com/sciple-idp/sciple-mcp"
+Issues        = "https://github.com/sciple-idp/sciple-mcp/issues"
+Documentation = "https://github.com/sciple-idp/sciple-mcp#readme"
 
 [project.scripts]
 sciple-mcp = "sciple_mcp.server:main"
