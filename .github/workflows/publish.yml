@@ -6,10 +6,7 @@ name: Publish
 # What this runs in order on a `v*` tag:
 #   1. build         — sdist + wheel into dist/ and a .dxt into bundle/
 #   2. publish-pypi  — Trusted-Publish to PyPI (OIDC, no token)
-#   3. publish-registry  — register/update the entry on
-#                          registry.modelcontextprotocol.io via GitHub OIDC
-#                          (proves ownership of io.github.navaganeshr/*)
-#   4. github-release — attach the .dxt bundle so users can one-click
+#   3. github-release — attach the .dxt bundle so users can one-click
 #                       install in Claude Desktop
 
 on:
@@ -78,41 +75,9 @@ jobs:
           # instead of failing, so publish-registry / github-release can retry.
           skip-existing: true
 
-  publish-registry:
-    name: Publish to MCP Registry via GitHub OIDC
-    needs: publish-pypi
-    runs-on: ubuntu-latest
-    permissions:
-      # GitHub OIDC token is what proves ownership of the
-      # io.github.navaganeshr/* namespace to the registry — no
-      # registry-side secret required.
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install mcp-publisher CLI
-        run: |
-          set -euo pipefail
-          # Asset naming is `mcp-publisher_<os>_<arch>.tar.gz` — the runner
-          # is ubuntu-latest (linux/amd64). Tarball contents are flat:
-          # LICENSE, README.md, mcp-publisher.
-          tmp=$(mktemp -d)
-          curl -sSfL \
-            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
-            | tar -xz -C "$tmp"
-          sudo install -m 0755 "$tmp/mcp-publisher" /usr/local/bin/mcp-publisher
-          mcp-publisher --help | head -3
-
-      - name: Authenticate with GitHub OIDC
-        run: mcp-publisher login github-oidc
-
-      - name: Publish server.json
-        run: mcp-publisher publish
-
   github-release:
     name: Attach .dxt to the GitHub release
-    needs: [publish-pypi, publish-registry]
+    needs: publish-pypi
     runs-on: ubuntu-latest
     permissions:
       contents: write
