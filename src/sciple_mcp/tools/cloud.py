@@ -130,11 +130,12 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
                 + ", ".join(sorted(_TABLE_SERVICES))
             )
         page_size = max(1, min(page_size, 500))
-        q = f"?page={max(1, page)}&page_size={page_size}"
+        params: dict[str, object] = {"page": max(1, page), "page_size": page_size}
         if region:
-            q += f"&region={region}"
+            params["region"] = region
         result = await get_client().get(
-            f"/cloud/aws/accounts/{account_id}/{service}/{resource_type}{q}"
+            f"/cloud/aws/accounts/{account_id}/{service}/{resource_type}",
+            params=params,
         )
         items = result.get("items", [])
         total = result.get("total", len(items))
@@ -170,13 +171,15 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
             if not targets:
                 return "No AWS accounts connected to this tenant."
 
-        q = "?page=1&page_size=500" + (f"&region={region}" if region else "")
+        params: dict[str, object] = {"page": 1, "page_size": 500}
+        if region:
+            params["region"] = region
         blocks: list[str] = []
         grand = 0
         for acct in targets:
             aid = acct["id"]
             result = await client.get(
-                f"/cloud/aws/accounts/{aid}/ec2/aws_ec2_instance{q}"
+                f"/cloud/aws/accounts/{aid}/ec2/aws_ec2_instance", params=params
             )
             rows = result.get("items", [])
             grand += len(rows)

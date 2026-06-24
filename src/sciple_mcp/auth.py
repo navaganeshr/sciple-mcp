@@ -111,7 +111,11 @@ def validate_jwt(
         claims = pyjwt.decode(
             raw,
             key,
-            algorithms=[header.get("alg", "RS256")],
+            # Pin the algorithm allowlist to what the Sciple AS actually signs
+            # with (RS256). NEVER derive this from the token's own `alg` header
+            # — that enables algorithm-confusion attacks (e.g. forging an HS256
+            # token using the public JWKS key as the HMAC secret, or `alg:none`).
+            algorithms=["RS256"],
             audience=audience,
             issuer=issuer,
         )

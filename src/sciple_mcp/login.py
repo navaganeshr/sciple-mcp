@@ -45,6 +45,7 @@ from sciple_mcp.credentials import (
     forget_credential,
     get_credential,
     load_store,
+    require_secure_url,
     save_credential,
 )
 
@@ -208,6 +209,7 @@ def login(
 
     Returns the saved Credential. Raises on any failure.
     """
+    require_secure_url(platform_url)
     existing = get_credential(platform_url)
     callback_port = _ephemeral_port()
     redirect_uri = f"http://127.0.0.1:{callback_port}/cb"
@@ -422,6 +424,7 @@ def main_logout(argv: list[str] | None = None) -> int:
     cred = get_credential(target)
     if args.revoke and cred is not None:
         try:
+            require_secure_url(target)
             body = json.dumps({
                 "token": cred.refresh_token,
                 "token_type_hint": "refresh_token",

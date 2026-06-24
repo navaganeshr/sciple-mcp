@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from xml.sax.saxutils import escape as _xml_escape
 
 PLIST_LABEL = "cloud.sciple.mcp"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{PLIST_LABEL}.plist"
@@ -72,11 +73,13 @@ def install(port: int, platform_url: str) -> None:
 
     plist = PLIST_TEMPLATE.format(
         label=PLIST_LABEL,
-        executable=_executable(),
+        executable=_xml_escape(_executable()),
         port=port,
-        platform_url=platform_url,
-        stdout=str(DEFAULT_LOG_DIR / "stdout.log"),
-        stderr=str(DEFAULT_LOG_DIR / "stderr.log"),
+        # XML-escape so a URL containing `<`/`&`/`</string>` can't inject
+        # extra plist keys.
+        platform_url=_xml_escape(platform_url),
+        stdout=_xml_escape(str(DEFAULT_LOG_DIR / "stdout.log")),
+        stderr=_xml_escape(str(DEFAULT_LOG_DIR / "stderr.log")),
     )
     PLIST_PATH.write_text(plist, encoding="utf-8")
     os.chmod(PLIST_PATH, 0o644)
