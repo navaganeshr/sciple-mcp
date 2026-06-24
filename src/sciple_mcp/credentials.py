@@ -30,14 +30,47 @@ so the file must be rewritten atomically after every refresh.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 SCHEMA_VERSION = 1
+
+# Hostnames that are safe to reach over plaintext http:// (local dev). Anything
+# else MUST use https:// — tokens and the refresh-token exchange travel over
+# these URLs, so plaintext to a non-loopback host is a MITM exposure.
+_LOOPBACK_HOSTS = {"localhost"}
+
+
+def require_secure_url(url: str) -> str:
+    """Return `url` unchanged if it's safe to send bearer secrets to.
+
+    Allows https:// to anywhere, and http:// only to loopback (localhost /
+    127.0.0.0/8 / ::1) for local development. Raises ValueError otherwise so a
+    misconfigured deployment fails loudly instead of leaking tokens in cleartext.
+    """
+    parts = urlsplit(url)
+    if parts.scheme == "https":
+        return url
+    if parts.scheme == "http":
+        host = parts.hostname or ""
+        if host in _LOOPBACK_HOSTS:
+            return url
+        try:
+            if ipaddress.ip_address(host).is_loopback:
+                return url
+        except ValueError:
+            pass
+        raise ValueError(
+            f"Refusing plaintext http:// to non-loopback host '{host}'. "
+            "Use https:// — bearer tokens are sent over this URL."
+        )
+    raise ValueError(f"Unsupported URL scheme in '{url}' (expected https://).")
 
 # When the access token has fewer than this many seconds left we refresh it
 # before handing it out. Generous because clock skew + the cost of a fresh
@@ -92,6 +125,9 @@ def save_credential(cred: Credential, *, set_default: bool = True) -> None:
     """
     path = credentials_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Tighten the dir to 0700 — it holds bearer secrets, and mkdir's mode is
+    # subject to umask so we can't rely on it alone.
+    os.chmod(path.parent, 0o700)
 
     store = load_store()
     store["version"] = SCHEMA_VERSION
@@ -160,6 +196,7 @@ def refresh_access_token(cred: Credential) -> Credential:
     Raises RuntimeError if the AS rejects the refresh (e.g. revoked,
     expired, rotated by another process). The cache is updated on success.
     """
+    require_secure_url(cred.platform_url)
     body = json.dumps({
         "grant_type": "refresh_token",
         "refresh_token": cred.refresh_token,

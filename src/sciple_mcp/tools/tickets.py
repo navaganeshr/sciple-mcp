@@ -103,28 +103,26 @@ def register(mcp, get_client: Callable[[], ScipleClient]) -> None:
                               where the service appears in affected_services.
             limit: Max rows (1-200, default 50).
         """
-        params: list[str] = []
+        params: dict[str, object] = {"limit": limit}
         if service_id is not None:
-            params.append(f"service_id={service_id}")
+            params["service_id"] = service_id
         if assignee_user_id is not None:
-            params.append(f"assignee_user_id={assignee_user_id}")
+            params["assignee_user_id"] = assignee_user_id
         if status is not None:
-            params.append(f"status={status}")
+            params["status"] = status
         if priority is not None:
-            params.append(f"priority={priority}")
+            params["priority"] = priority
         if ticket_type is not None:
-            params.append(f"ticket_type={ticket_type}")
+            params["ticket_type"] = ticket_type
         if parent_ticket_id is not None:
-            params.append(f"parent_ticket_id={parent_ticket_id}")
+            params["parent_ticket_id"] = parent_ticket_id
         if tag is not None:
-            params.append(f"tag={tag}")
+            params["tag"] = tag
         if q is not None:
-            params.append(f"q={q}")
+            params["q"] = q
         if include_affected:
-            params.append("include_affected=true")
-        params.append(f"limit={limit}")
-        path = "/tickets" + ("?" + "&".join(params) if params else "")
-        data = await get_client().get(path)
+            params["include_affected"] = "true"
+        data = await get_client().get("/tickets", params=params)
         items = data.get("items", []) if isinstance(data, dict) else (data or [])
         if not items:
             return "No tickets match those filters."

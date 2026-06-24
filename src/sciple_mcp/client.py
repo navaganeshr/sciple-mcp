@@ -16,9 +16,14 @@ class ScipleClient:
             "Content-Type": "application/json",
         }
 
-    async def get(self, path: str) -> object:
+    async def get(self, path: str, params: dict | None = None) -> object:
+        # Pass query values via `params` (not interpolated into `path`) so httpx
+        # URL-encodes them — prevents a free-text filter value containing `&`/`#`
+        # from injecting extra query parameters.
         async with httpx.AsyncClient() as http:
-            r = await http.get(f"{self._base}{path}", headers=self._headers)
+            r = await http.get(
+                f"{self._base}{path}", headers=self._headers, params=params
+            )
             r.raise_for_status()
             return r.json()
 

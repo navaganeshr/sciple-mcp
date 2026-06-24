@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from sciple_mcp.auth import BearerContext, InvalidToken, JwksCache, validate_jwt
+from sciple_mcp.credentials import require_secure_url
 
 # Per-request bearer set by AuthMiddleware, read by _get_client() in server.py.
 bearer_ctx: contextvars.ContextVar[BearerContext | None] = contextvars.ContextVar(
@@ -44,6 +45,7 @@ def _discover_jwks_url(platform_url: str) -> tuple[str, str, str]:
     the same logical service). RFC 8414 doesn't publish an audience field,
     so we adopt the issuer as the audience by contract with the AS.
     """
+    require_secure_url(platform_url)
     meta_url = platform_url.rstrip("/") + "/.well-known/oauth-authorization-server"
     with urlopen(meta_url, timeout=5) as resp:
         doc = json.loads(resp.read())
