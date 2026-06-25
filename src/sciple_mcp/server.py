@@ -42,7 +42,9 @@ from mcp.server.fastmcp import FastMCP
 
 from sciple_mcp.client import ScipleClient
 from sciple_mcp.tools import (
+    athena,
     cloud,
+    dbconsole,
     environments,
     observability,
     projects,
@@ -110,7 +112,9 @@ def _get_client() -> ScipleClient:
     )
 
 
+athena.register(mcp, _get_client)
 cloud.register(mcp, _get_client)
+dbconsole.register(mcp, _get_client)
 environments.register(mcp, _get_client)
 observability.register(mcp, _get_client)
 projects.register(mcp, _get_client)
