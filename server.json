@@ -3,7 +3,7 @@
   "name": "io.github.sciple-idp/sciple-mcp",
   "title": "Sciple Platform",
   "description": "Sciple platform MCP: services, dashboards, runbooks, tickets, environments, AWS cloud inventory.",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "repository": {
     "url": "https://github.com/sciple-idp/sciple-mcp",
     "source": "github"
@@ -13,7 +13,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "sciple-mcp",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
